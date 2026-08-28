@@ -4,6 +4,10 @@ import json
 import math
 import os
 import time
+import subprocess
+import threading
+import atexit
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
@@ -54,9 +58,13 @@ TEST_PAIN_SCORE = 8
 POST_PAIN_SCORE = 6
 
 
+thread_local = threading.local()
+
 def tprint(msg: str):
     ts = datetime.now().strftime("%H:%M:%S")
-    print(f"[{ts}] {msg}", flush=True)
+    udid = getattr(thread_local, 'udid', '')
+    prefix = f"[{udid}] " if udid else ""
+    print(f"[{ts}] {prefix}{msg}", flush=True)
 
 def safe_name(*parts) -> str:
     joined = "_".join(p for p in parts if p)
@@ -998,51 +1006,98 @@ def clean_slate(driver):
             
     tprint(f"[START] Cleaned up {deleted} leftover plan(s). Slate is completely clean!")
 
-def main():
+def get_connected_devices():
+    try:
+        output = subprocess.check_output(['adb', 'devices']).decode('utf-8')
+        devices = []
+        for line in output.strip().split('\n')[1:]:
+            parts = line.split()
+            if len(parts) == 2 and parts[1] == 'device':
+                devices.append(parts[0])
+        return devices
+    except Exception as e:
+        tprint(f"Failed to run adb devices: {e}")
+        return []
+
+def run_device_matrix(udid, appium_port, system_port, combinations):
+    thread_local.udid = udid
+    tprint(f"Starting worker for {udid} on Appium port {appium_port} with {len(combinations)} combos...")
+    
+    appium_cmd = ["appium", "-p", str(appium_port)]
+    # Use shell=True on Windows to ensure appium resolves from PATH properly
+    appium_proc = subprocess.Popen(appium_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    
+    def cleanup():
+        try: appium_proc.kill()
+        except: pass
+    atexit.register(cleanup)
+    
+    time.sleep(6) # Wait for Appium to boot up
+    
     options = UiAutomator2Options()
     options.platform_name = "Android"
     options.automation_name = "UiAutomator2"
-    if DEVICE_ID: options.device_name = DEVICE_ID
+    options.device_name = udid
+    options.udid = udid
     options.app_package = APP_PACKAGE
     options.app_activity = APP_ACTIVITY
     options.no_reset = True
     options.auto_grant_permissions = True
-    
+    options.set_capability("systemPort", system_port)
     options.set_capability("waitForIdleTimeout", 0)
-
-    tprint(f"RUN     Output folder: {os.path.abspath(RUN_DIR)}")
-    tprint("START   Connecting to Appium & launching app...")
-    driver = webdriver.Remote(APPIUM_HOST, options=options)
-    time.sleep(5)  # Wait for app to fully load
-
-    time.sleep(3)
-    clean_slate(driver)
-
+    
     results = []
+    driver = None
     try:
-        relief_combos = build_combinations()
-        tprint(f"Running {len(relief_combos)} Relief Mode combinations...")
-        for site, side, dur in relief_combos:
+        driver = webdriver.Remote(f"http://127.0.0.1:{appium_port}", options=options)
+        time.sleep(5)
+        clean_slate(driver)
+        
+        for site, side, dur in combinations:
             results.append(run_relief_combo(driver, site, side, dur))
-
-        if RUN_RECOVERY:
-            tprint(f"Running {len(ALL_SITES)} Recovery Mode combinations...")
-            for site in ALL_SITES:
-                results.append(run_recovery_combo(driver, site))
-        else:
-            tprint("Recovery Mode SKIPPED (RUN_RECOVERY=False)")
-            
+    except Exception as e:
+        tprint(f"Worker crashed: {e}")
     finally:
-        device_name = "Unknown Device"
-        try:
-            device_name = driver.capabilities.get("deviceModel", driver.capabilities.get("deviceName", "Unknown Device"))
-        except:
-            pass
-            
-        generate_report(results, device_name)
-        driver.quit()
-        passed = sum(1 for r in results if r["status"] == "PASS")
-        tprint(f"DONE    {passed}/{len(results)} combinations passed")
+        if driver:
+            try: driver.quit()
+            except: pass
+        cleanup()
+        
+    return results
 
+def main():
+    tprint(f"RUN     Output folder: {os.path.abspath(RUN_DIR)}")
+    
+    devices = get_connected_devices()
+    if not devices:
+        tprint("No devices found via ADB! Make sure USB debugging is on.")
+        return
+        
+    relief_combos = build_combinations()
+    tprint(f"Found {len(devices)} devices. Splitting {len(relief_combos)} combinations...")
+    
+    chunk_size = math.ceil(len(relief_combos) / len(devices))
+    chunks = [relief_combos[i:i + chunk_size] for i in range(0, len(relief_combos), chunk_size)]
+    
+    all_results = []
+    start_time = time.time()
+    
+    with ThreadPoolExecutor(max_workers=len(devices)) as executor:
+        futures = []
+        for i, udid in enumerate(devices):
+            if i >= len(chunks): break # More devices than combos!
+            port = 4723 + (i * 2)
+            sys_port = 8200 + (i * 2)
+            futures.append(executor.submit(run_device_matrix, udid, port, sys_port, chunks[i]))
+            
+        for future in as_completed(futures):
+            all_results.extend(future.result())
+            
+    total_time = int(time.time() - start_time)
+    tprint(f"All devices finished in {total_time} seconds.")
+    generate_report(all_results, "Multi-Device Farm")
+    passed = sum(1 for r in all_results if r["status"] == "PASS")
+    tprint(f"DONE    {passed}/{len(all_results)} combinations passed")
+    
 if __name__ == "__main__":
     main()
