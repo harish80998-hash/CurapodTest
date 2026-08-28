@@ -1,0 +1,19 @@
+[
+  {
+    "device": "ZD222HCY7C",
+    "status": "Fail",
+    "duration": 11.4,
+    "full_video": "recordings\\ZD222HCY7C_full_20260822_130823.mp4",
+    "bug_clips": [
+      "recordings\\ZD222HCY7C_BUG_CRASH_UNKNOWN_20260822_130820.mp4"
+    ],
+    "steps": {
+      "null": {
+        "status": "Fail",
+        "note": "handle_onboarding() takes 4 positional arguments but 5 were given",
+        "duration": 1787384300.3,
+        "data": {}
+      }
+    }
+  }
+]

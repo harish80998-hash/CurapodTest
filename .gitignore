@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+relief_matrix_runs/
+node_modules/
+.venv/
+venv/
+*.mp4
+*.png
+*.jpg
+.DS_Store
+
+*.apk
+*.exe
+*.xml

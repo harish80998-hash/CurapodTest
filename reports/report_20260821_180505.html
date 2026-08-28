@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<title>Curapod-M Test Report</title>
+<style>
+  body { font-family: 'Segoe UI', sans-serif; background: #0d1117; color: #e6edf3; padding: 30px; }
+  h1   { color: #58a6ff; } h2 { color: #8b949e; }
+  .summary { display:flex; gap:20px; margin:20px 0; }
+  .card { background:#161b22; border-radius:10px; padding:20px 30px; text-align:center; }
+  .card .num { font-size:40px; font-weight:bold; }
+  .pass { color:#3fb950; } .fail { color:#f85149; } .rate { color:#d29922; } .glitch { color:#e3b341; }
+  table { width:100%; border-collapse:collapse; margin-top:20px; }
+  th { background:#21262d; padding:12px; text-align:left; color:#8b949e; font-size:13px; }
+  td { padding:10px 12px; font-size:13px; border-bottom:1px solid #21262d; }
+</style>
+</head><body>
+<h1>🧪 Curapod-M Parallel Test Report</h1>
+<h2>Run: 2026-08-21 18:05:05 &nbsp;|&nbsp; Devices: 1 &nbsp;|&nbsp; Max Retries: 2</h2>
+<div class="summary">
+  <div class="card"><div class="num pass">0</div>PASSED</div>
+  <div class="card"><div class="num fail">1</div>CONFIRMED FAILED</div>
+  <div class="card"><div class="num glitch">0</div>GLITCHES</div>
+  <div class="card"><div class="num rate">0%</div>PASS RATE</div>
+</div>
+<table>
+  <tr>
+    <th>Device</th><th>Status</th><th>Attempts</th><th>Failed Step</th>
+    <th>Error</th><th>Duration</th><th>Screenshot</th>
+  </tr>
+  
+        <tr style="background:#4a1942">
+            <td>ZD222HCY7C</td>
+            <td>❌ Fail</td>
+            <td>3/3</td>
+            <td>UNKNOWN</td>
+            <td style="font-size:11px">Message: org.eclipse.wst.xml.xpath2.processor.XPathParserException: CUP parser e</td>
+            <td>11.0s</td>
+            <td><a href="error_screenshots\ZD222HCY7C_FAIL_UNKNOWN_20260821_180503.png">📸 View</a></td>
+        </tr>
+</table>
+</body></html>
